@@ -144,14 +144,17 @@ def extract_reaction_conditions(dic, roles_map={'REACTANT': 'reactants', 'SOLVEN
 
     # Notes
     final_dic['notes'] = dic.get('notes', {}).get('procedureDetails')
-    
-    # Patent
+
+    # Provenance
     final_dic['patent'] = dic.get('provenance', {}).get('patent')
 
     return final_dic
 
 
 def parse_pb_file(pb: str, ord_parsed_path: str):
+    # make dirs
+    os.makedirs(f'{ord_parsed_path}/originals/', exist_ok=True)
+    os.makedirs(f'{ord_parsed_path}/parsed/', exist_ok=True)
     dataset_name = os.path.split(pb)[-1].strip('.pb.gz')
     reaction_conditions = []
     try:
@@ -209,7 +212,6 @@ def is_reaction_of_type(reaction_to_test,
             if reactant is None:
                 continue
             reactant.UpdatePropertyCache()
-            # if len(reactant.GetSubstructMatches(r_pattern)) > 0:
             if reactant.HasSubstructMatch(r_pattern):
                 # the reactant matches with the pattern
                 reactants_to_test.append(deepcopy(reactant))
@@ -232,7 +234,6 @@ def is_reaction_of_type(reaction_to_test,
     if len(estimated_products) == 0:
         return False
 
-    # return any(any(len(pred.GetSubstructMatches(obs)) > 0 for obs in actual_products)  # any of the actual products matches the predicted product
     return any(any(pred.HasSubstructMatch(obs) for obs in actual_products)  # any of the actual products matches the predicted product
                for pred in estimated_products)  # for any of the predicted products
 
