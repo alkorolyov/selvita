@@ -16,6 +16,24 @@ from rdkit.Chem.Draw import MolsToGridImage
 from rdkit.Chem import Draw
 from rdkit.Chem.Draw import rdMolDraw2D
 
+from indigo import Indigo
+from indigo.renderer import IndigoRenderer
+
+from IPython.display import SVG
+from IPython.display import display_svg
+from IPython.display import display_png
+from IPython.display import Image
+from IPython.display import display
+
+indigo = Indigo()
+renderer = IndigoRenderer(indigo)
+
+indigo.setOption("render-output-format", "svg")
+# indigo.setOption("render-superatom-mode", "collapse")
+indigo.setOption("render-coloring", True)
+# indigo.setOption("render-base-color", "1, 1, 1")
+indigo.setOption("render-relative-thickness", 1.5)
+
 
 ORD_REPO_PATH = './ord-data'
 ORD_PATH = './ORD'
@@ -270,21 +288,19 @@ def draw_reaction_solvents(df):
     print(notes)
 
 
-def draw_reaction_rand(df, rxn_index=None, notes_text=None):
-    if not rxn_index:
-        rxn_index = np.random.randint(0, df.shape[0])
-    reactants = []
-    rxn = df.loc[df.index[rxn_index]]
-    for r in rxn['reactants']:
-        if r[1]:
-            reactants.append(MolFromSmiles(r[1]))
+def draw_reaction(df, notes_text=None, render_format='png'):
+    series = df.squeeze()
+    rxn = indigo.loadReaction(series['reaction_smile'])
 
-    product = MolFromSmiles(df.loc[df.index[rxn_index], 'product'])
-    print('Reaction:', rxn_index)
-    print('Solvent:', rxn['solvents'])
-    print('Catalyst', rxn['catalysts'])
-    display(MolsToGridImage(reactants + [product]))
-    if notes_text:
-        print(colorize(rxn['notes'], notes_text))
+    indigo.setOption("render-output-format", render_format)
+    if render_format == 'png':
+        display(Image(renderer.renderToBuffer(rxn)))
+    elif render_format == 'svg':
+        display(SVG(renderer.renderToBuffer(rxn)))
     else:
-        print(rxn['notes'])
+        print(f"{render_format}: unknown render format, 'svg' or 'png' ")
+
+    if notes_text:
+        print(colorize(series['notes'], notes_text))
+    else:
+        print(series['notes'])
