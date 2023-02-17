@@ -17,6 +17,9 @@ from rdkit.Chem import Draw
 from rdkit.Chem.Draw import rdMolDraw2D
 
 
+ORD_REPO_PATH = './ord-data'
+ORD_PATH = './ORD'
+
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
