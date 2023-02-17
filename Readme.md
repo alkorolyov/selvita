@@ -1,28 +1,37 @@
 # Initial setup steps
 
-### get ord database
+get ord database
+```
 sudo apt-get install git
 sudo apt-get install git-lfs
 
 git clone https://github.com/open-reaction-database/ord-data
 pip install ord-schema
+```
 
-### setup PATH variable
+setup PATH variable
+```
 $PATH="$PATH:/workdir/.local/bin"
 sudo mcedit ~/.profile
 export PATH="$PATH:/workdir/.local/bin"
+```
 
-### install packages
+install packages
+```
 pip install "dask[complete]"
+```
 
-### git clone ORD project
+git clone ORD project
+```
 git clone https://github.com/alkorolyov/selvita
+```
 
 
-
-### in mambaforge environment
+(optional) in mambaforge environment
+```
 mamba create -n chem python=3.8
 mamba activate chem
 mamba install -y numpy pandas rdkit dask
 pip install ord-schema
+```
 
