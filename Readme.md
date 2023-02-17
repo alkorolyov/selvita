@@ -19,13 +19,13 @@ export PATH="$PATH:/workdir/.local/bin"
 install packages
 ```
 pip install "dask[complete]"
+pip install epam.indigo
 ```
 
 git clone ORD project
 ```
 git clone https://github.com/alkorolyov/selvita
 ```
-
 
 (optional) in mambaforge environment
 ```
