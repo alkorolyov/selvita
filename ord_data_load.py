@@ -2,6 +2,8 @@ import os
 import re
 import json
 import multiprocessing as mp
+
+import pandas as pd
 from ord_schema import message_helpers
 from ord_schema.proto import dataset_pb2
 
@@ -24,6 +26,8 @@ from IPython.display import display_svg
 from IPython.display import display_png
 from IPython.display import Image
 from IPython.display import display
+
+from typing import Union
 
 indigo = Indigo()
 renderer = IndigoRenderer(indigo)
@@ -288,10 +292,11 @@ def draw_reaction_solvents(df):
     print(notes)
 
 
-def draw_reaction(df, notes_text=None, render_format='png'):
-    series = df.squeeze()
-    rxn = indigo.loadReaction(series['reaction_smile'])
+def draw_reaction(data: Union[pd.Series, pd.DataFrame], notes_text: str = None, render_format='png'):
+    if isinstance(data, pd.DataFrame):
+        data = data.sample()
 
+    rxn = indigo.loadReaction(data['reaction_smile'].item())
     indigo.setOption("render-output-format", render_format)
     if render_format == 'png':
         display(Image(renderer.renderToBuffer(rxn)))
@@ -300,7 +305,31 @@ def draw_reaction(df, notes_text=None, render_format='png'):
     else:
         print(f"{render_format}: unknown render format, 'svg' or 'png' ")
 
+    print("Patent:      ", data['patent'].item())
+    print("Reaction_id: ", data.index.item())
+
     if notes_text:
-        print(colorize(series['notes'], notes_text))
+        print(colorize(data['notes'].item(), notes_text))
     else:
-        print(series['notes'])
+        print(data['notes'].item())
+
+def draw_reaction_smi(rxn_smiles: str, render_format='png'):
+    rxn = indigo.loadReaction(rxn_smiles)
+    indigo.setOption("render-output-format", render_format)
+    if render_format == 'png':
+        display(Image(renderer.renderToBuffer(rxn)))
+    elif render_format == 'svg':
+        display(SVG(renderer.renderToBuffer(rxn)))
+    else:
+        print(f"{render_format}: unknown render format, 'svg' or 'png' ")
+
+def draw_mol(mol_smi: str, render_format='png'):
+    mol = indigo.loadMolecule(mol_smi)
+    indigo.setOption("render-output-format", render_format)
+    if render_format == 'png':
+        display(Image(renderer.renderToBuffer(mol)))
+    elif render_format == 'svg':
+        display(SVG(renderer.renderToBuffer(mol)))
+    else:
+        print(f"{render_format}: unknown render format, 'svg' or 'png' ")
+
