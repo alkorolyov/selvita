@@ -1,15 +1,16 @@
 import os
 import re
 import json
+import gzip
 import multiprocessing as mp
 
 import pandas as pd
+import numpy as np
+from google import protobuf
 from ord_schema import message_helpers
 from ord_schema.proto import dataset_pb2
 
 from copy import deepcopy
-
-import numpy as np
 
 from rdkit.Chem import MolFromSmiles as smiles2mol
 from rdkit.Chem.AllChem import ReactionFromSmarts
@@ -41,6 +42,7 @@ indigo.setOption("render-relative-thickness", 1.5)
 
 ORD_REPO_PATH = './ord-data'
 ORD_PATH = './ORD'
+
 
 class bcolors:
     HEADER = '\033[95m'
@@ -199,6 +201,23 @@ def parse_pb_file(pb: str, ord_parsed_path: str):
             json.dump(reaction_conditions, file)
 
 
+def load_dataset(filename: str) -> dataset_pb2.Dataset:
+    try:
+        with gzip.open(filename, "rb") as f:
+            return dataset_pb2.Dataset.FromString(f.read())
+    except protobuf.message.DecodeError as error:
+        raise ValueError(f"error parsing {filename}: {error}") from error
+
+
+def filter_uspto_filenames(filename: str) -> Union[str, None]:
+    try:
+        dataset = load_dataset(filename)
+        if "uspto" in dataset.name:
+            return filename
+    except protobuf.message.DecodeError as error:
+        raise ValueError(f"error parsing {filename}: {error}") from error
+
+
 def is_reaction_of_type(reaction_to_test,
                         # reaction_type_pattern=ReactionFromSmarts("[#8]-[#5](-[#8])-[#6:1].[#17,#35,#53]-[#6:2]>>[#6:1]-[#6:2]"),
                         reaction_type_pattern=None,
@@ -292,7 +311,7 @@ def draw_reaction_solvents(df):
     print(notes)
 
 
-def draw_reaction(data: Union[pd.Series, pd.DataFrame], notes_text: str = None, render_format='png'):
+def draw_reaction(data: Union[pd.Series, pd.DataFrame], highlight_text: str = None, render_format='png'):
     if isinstance(data, pd.DataFrame):
         data = data.sample()
 
@@ -308,8 +327,8 @@ def draw_reaction(data: Union[pd.Series, pd.DataFrame], notes_text: str = None, 
     print("Patent:      ", data['patent'].item())
     print("Reaction_id: ", data.index.item())
 
-    if notes_text:
-        print(colorize(data['notes'].item(), notes_text))
+    if highlight_text:
+        print(colorize(data['notes'].item(), highlight_text))
     else:
         print(data['notes'].item())
 
@@ -332,4 +351,3 @@ def draw_mol(mol_smi: str, render_format='png'):
         display(SVG(renderer.renderToBuffer(mol)))
     else:
         print(f"{render_format}: unknown render format, 'svg' or 'png' ")
-

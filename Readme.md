@@ -20,6 +20,7 @@ install packages
 ```
 pip install "dask[complete]"
 pip install epam.indigo
+pip install pyrobuf
 ```
 
 git clone ORD project
