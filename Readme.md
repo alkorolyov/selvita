@@ -20,7 +20,6 @@ install packages
 ```
 pip install "dask[complete]"
 pip install epam.indigo
-pip install pyrobuf
 ```
 
 git clone ORD project
@@ -30,9 +29,10 @@ git clone https://github.com/alkorolyov/selvita
 
 (optional) in mambaforge environment
 ```
-mamba create -n chem python=3.8
+set MAMBA_NO_BANNER=1
+mamba create -n chem
 mamba activate chem
-mamba install -y numpy pandas rdkit dask
-pip install ord-schema
+mamba install -y numpy pandas dask jupyterlab zstandard
+pip install ord-schema epam.indigo 
 ```
 
