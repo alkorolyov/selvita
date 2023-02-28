@@ -18,8 +18,7 @@ export PATH="$PATH:/workdir/.local/bin"
 
 install packages
 ```
-pip install "dask[complete]"
-pip install epam.indigo
+pip install "dask[complete]" epam.indigo zstandard
 ```
 
 git clone ORD project
