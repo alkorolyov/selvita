@@ -32,6 +32,8 @@ set MAMBA_NO_BANNER=1
 mamba create -n chem
 mamba activate chem
 mamba install -y numpy pandas dask jupyterlab zstandard
-pip install ord-schema epam.indigo 
+pip install ord-schema epam.indigo
+pip install levenshtein fuzzysearch
+
 ```
 

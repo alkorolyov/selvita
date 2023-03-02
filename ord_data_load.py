@@ -3,9 +3,12 @@ import re
 import json
 import gzip
 
+import numpy as np
+
 from google import protobuf
 from ord_schema import message_helpers
 from ord_schema.proto import dataset_pb2
+from ord_schema.proto import reaction_pb2
 
 from copy import deepcopy
 
@@ -165,6 +168,74 @@ def load_dataset(filename: str) -> dataset_pb2.Dataset:
             return dataset_pb2.Dataset.FromString(f.read())
     except protobuf.message.DecodeError as error:
         raise ValueError(f"error parsing {filename}: {error}") from error
+
+
+def parse_compound(arr: np.array,
+                   idx: int,
+                   rxn: reaction_pb2.Reaction,
+                   cmpd: Union[reaction_pb2.Compound, reaction_pb2.ProductCompound]
+                   ):
+    """
+    In USPTO scheme there are two or single name identifiers:
+        [systematic]
+        [trivial, systematic]
+
+        arr[:, 0] <- trivial
+        arr[:, 1] <- systematic
+    """
+    names = []
+    for i in cmpd.identifiers:
+        if i.type == reaction_pb2.CompoundIdentifier.NAME:
+            names.append(i.value)
+        if i.type == reaction_pb2.CompoundIdentifier.SMILES:
+            arr[idx, 2] = i.value
+
+    if len(names) == 1:
+        # [systematic]
+        arr[idx, 1] = names[0]
+    else:
+        # [trivial, systematic]
+        arr[idx, 0] = names[0]
+        arr[idx, 1] = names[1]
+
+    arr[idx, 3] = cmpd.reaction_role
+    arr[idx, 4] = rxn.reaction_id
+
+def parse_dataset(dataset: dataset_pb2.Dataset) -> np.array:
+    """
+        Parses USPTO dataset to extract compound data. Creates specific
+        numpy array of compounds with two indexes [0 .. total_cmpd_numer, field_idx]
+    - first idx:
+        Compound index
+    - second idx:
+        Corresponding field index
+        ['second name', 'name', 'smiles', 'role', 'rxn_id']
+        arr[i, 0] - (str/optional), trivial name or compound label in the patent
+        arr[i, 1] - (str), systematic name
+        arr[i, 2] - (str), smiles
+        arr[i, 3] - (int), reaction role enum from reaction_pb2.ReactionRole.ReactionRoleType,
+                           e.g. "REACTANT" - 1, "SOLVENT" - 3, "CATALYST" - 4, "PRODUCT" - 8
+        arr[i, 4] - (str), reaction_id, e.g. "ord-43d5b7a6265d46a0ab8a7e2b2db5ad33"
+
+    :param dataset:
+    :return:
+    """
+    N = len(dataset.reactions)
+    arr = np.empty((N*10, 5), dtype=object)
+    idx = 0
+
+    for rxn in dataset.reactions:
+        compounds = []
+
+        for key in rxn.inputs:
+            compounds.extend(rxn.inputs[key].components)
+        compounds.extend(rxn.outcomes[0].products)
+
+        for cmpd in compounds:
+            parse_compound(arr, idx, rxn, cmpd)
+            idx += 1
+    arr = np.resize(arr, (idx, 5))
+    return arr
 
 
 def filter_uspto_filenames(filename: str) -> Union[str, None]:
