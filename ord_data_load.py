@@ -201,7 +201,19 @@ def parse_compound(arr: np.array,
     arr[idx, 3] = cmpd.reaction_role
     arr[idx, 4] = rxn.reaction_id
 
-def parse_dataset(dataset: dataset_pb2.Dataset) -> np.array:
+def parse_product(arr: np.array,
+                  idx: int,
+                  rxn: reaction_pb2.Reaction,
+                  cmpd: Union[reaction_pb2.Compound, reaction_pb2.ProductCompound]
+                  ):
+
+    parse_compound(arr, idx, rxn, cmpd)
+    # products sometimes have UNDEFINED rxn_role
+    if arr[idx, 3] == 0: # UNDEFINED
+        arr[idx, 3] = 8 # PRODUCT
+
+
+def parse_dataset(dataset: dataset_pb2.Dataset) -> np.ndarray:
     """
         Parses USPTO dataset to extract compound data. Creates specific
         numpy array of compounds with two indexes [0 .. total_cmpd_numer, field_idx]
@@ -226,19 +238,32 @@ def parse_dataset(dataset: dataset_pb2.Dataset) -> np.array:
 
     for rxn in dataset.reactions:
         compounds = []
+        products = []
 
         for key in rxn.inputs:
             compounds.extend(rxn.inputs[key].components)
-        compounds.extend(rxn.outcomes[0].products)
+        products.extend(rxn.outcomes[0].products)
 
         for cmpd in compounds:
             parse_compound(arr, idx, rxn, cmpd)
             idx += 1
+        for cmpd in products:
+            parse_product(arr, idx, rxn, cmpd)
+            idx += 1
     arr = np.resize(arr, (idx, 5))
     return arr
 
+def pb2_to_numpy_cmpd(filename: str) -> np.ndarray:
+    """
+    Helper function for multiprocessing
+    """
+    dataset = load_dataset(filename)
+    return parse_dataset(dataset)
 
 def filter_uspto_filenames(filename: str) -> Union[str, None]:
+    """
+    Helper function for multiprocessing
+    """
     try:
         dataset = load_dataset(filename)
         if "uspto" in dataset.name:
