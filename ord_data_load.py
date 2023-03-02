@@ -20,6 +20,13 @@ from typing import Union
 ORD_REPO_PATH = './ord-data'
 ORD_PATH = './ORD'
 
+TEMP_CONTROL_MAP = {
+    2 : 25.0,   # AMBIENT
+    6 : 0,      # ICE_BATH
+    9 : -78,    # DRY_ICE_BATH
+    11: -120    # LIQUID_NITROGEN
+}
+
 
 def df_na_vals(df, return_empty=True):
     columns = df.columns
@@ -36,7 +43,7 @@ def df_na_vals(df, return_empty=True):
         return empty
 
 
-def fahreneheit_to_celsius(t):
+def fahrenheit_to_celsius(t):
     return (t - 32) * (5/9)
 
 
@@ -90,7 +97,7 @@ def extract_reaction_conditions(dic, roles_map={'REACTANT': 'reactants', 'SOLVEN
         if temperature['setpoint']['units'] == 'KELVIN':
             temperature = t - 273.15
         elif temperature['setpoint']['units'] == 'FAHRENHEIT':
-            temperature = fahreneheit_to_celsius(t)
+            temperature = fahrenheit_to_celsius(t)
         else:
             temperature = t
     else:
@@ -250,8 +257,9 @@ def parse_dataset(dataset: dataset_pb2.Dataset) -> np.ndarray:
         for cmpd in products:
             parse_product(arr, idx, rxn, cmpd)
             idx += 1
-    arr = np.resize(arr, (idx, 5))
+    arr = arr[:idx]
     return arr
+
 
 def pb2_to_numpy_cmpd(filename: str) -> np.ndarray:
     """
@@ -259,6 +267,82 @@ def pb2_to_numpy_cmpd(filename: str) -> np.ndarray:
     """
     dataset = load_dataset(filename)
     return parse_dataset(dataset)
+
+
+def parse_dataset_rxn(dataset: dataset_pb2.Dataset) -> np.ndarray:
+    """
+    Parses USPTO dataset to extract reaction data. Creates specific
+    numpy array of compounds with two indexes [0 .. N, field_idx]
+
+    columns = ['rxn_id', 'rxn_smiles', 'time', 'temp', 'yield', 'patent', 'notes']
+    field_idx:   0            1          2       3        4        5        6
+
+    :param dataset: ord USPTO dataset
+    :return: numpy array with shape (N, 7)
+    """
+    N = len(dataset.reactions)
+    arr = np.empty((N, 7), dtype=object)
+    idx = 0
+
+    for rxn in dataset.reactions:
+        arr[idx, 0] = rxn.reaction_id
+        arr[idx, 1] = rxn.identifiers[0].value
+
+        arr[idx, 5] = rxn.provenance.patent
+        arr[idx, 6] = rxn.notes.procedure_details
+
+        # time (in hours)
+        time = rxn.outcomes[0].reaction_time
+        if time:
+            t = None
+            if time.units == 1:     # HOUR
+                t = time.value
+            elif time.units == 2:   # MINUTE
+                t = time.value / 60
+            elif time.units == 4:   # DAY
+                t = time.value * 24
+            arr[idx, 2] = t
+
+        # temperature (celcius)
+        temp = rxn.conditions.temperature
+        t = None
+        if temp.control:
+            t = TEMP_CONTROL_MAP.get(temp.control.type, None)
+        if temp.setpoint:
+            t = temp.setpoint.value
+            if temp.setpoint.units == 2: # FAHRENHEIT
+                t = fahrenheit_to_celsius(t)
+            elif temp.setpoint.units == 3: # KELVIN
+                t = t - 273.15
+        if t is not None:
+            arr[idx, 3] = t
+
+        # yield (keep PERCENTYIELD if more than two)
+        yields = {}
+        for p in rxn.outcomes[0].products:
+            for m in p.measurements:
+                if m.type == 3: # yield
+                    yields[m.details] = m.percentage.value
+        if yields:
+            if len(yields) > 1:
+                y = yields.get("PERCENTYIELD", None)
+            else:
+                y = yields.get("CALCULATEDPERCENTYIELD", None)
+            arr[idx, 4] = y
+        idx += 1
+
+    arr = arr[:idx]
+    return arr
+
+
+def pb2_to_numpy_rxn(filename: str) -> np.ndarray:
+    """
+    Helper function for multiprocessing
+    """
+    dataset = load_dataset(filename)
+    return parse_dataset_rxn(dataset)
+
+
 
 def filter_uspto_filenames(filename: str) -> Union[str, None]:
     """
