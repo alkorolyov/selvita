@@ -22,9 +22,10 @@ indigo.setOption("render-relative-thickness", 1.5)
 
 
 def colorize(substring, text):
-    matches = find_near_matches(substring, text, max_l_dist=2)
+    matches = find_near_matches(substring, text, max_l_dist=1)
     if matches:
-        return text.replace(matches[0].matched, f'{Fore.BLACK}{Back.LIGHTYELLOW_EX}{substring}{Style.RESET_ALL}')
+        for m in matches:
+            text = text.replace(m.matched, f'{Fore.BLACK}{Back.LIGHTYELLOW_EX}{m.matched}{Style.RESET_ALL}')
     return text
 
 
