@@ -1,4 +1,6 @@
 from typing import Union
+from colorama import Fore, Back, Style
+from fuzzysearch import find_near_matches
 
 import numpy as np
 import pandas as pd
@@ -19,20 +21,11 @@ indigo.setOption("render-coloring", True)
 indigo.setOption("render-relative-thickness", 1.5)
 
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-
-def colorize(text, substring, color=bcolors.WARNING):
-    return text.replace(substring, f'{color}{substring}{bcolors.ENDC}')
+def colorize(substring, text):
+    matches = find_near_matches(substring, text, max_l_dist=2)
+    if matches:
+        return text.replace(matches[0].matched, f'{Fore.BLACK}{Back.LIGHTYELLOW_EX}{substring}{Style.RESET_ALL}')
+    return text
 
 
 def clear_atom_mapping(rxn):
@@ -60,7 +53,7 @@ def draw_reaction_solvents(df):
                                  drawOptions=do))
     notes = rxn['notes']
     for (name, _) in rxn['solvents']:
-        notes = colorize(notes, name)
+        notes = colorize(name, notes)
     print(notes)
 
 
@@ -68,7 +61,7 @@ def draw_reaction(data: Union[pd.Series, pd.DataFrame], highlight_text: str = No
     if isinstance(data, pd.DataFrame):
         data = data.sample().squeeze()
 
-    rxn = indigo.loadReaction(data['reaction_smile'])
+    rxn = indigo.loadReaction(data['rxn_smiles'])
     indigo.setOption("render-output-format", render_format)
     if render_format == 'png':
         display(Image(renderer.renderToBuffer(rxn)))
@@ -81,7 +74,7 @@ def draw_reaction(data: Union[pd.Series, pd.DataFrame], highlight_text: str = No
     print("Reaction_id: ", data.name)
 
     if highlight_text:
-        print(colorize(data['notes'], highlight_text))
+        print(colorize(highlight_text, data['notes']))
     else:
         print(data['notes'])
 

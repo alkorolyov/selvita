@@ -18,7 +18,7 @@ export PATH="$PATH:/workdir/.local/bin"
 
 install packages
 ```
-pip install "dask[complete]" epam.indigo zstandard
+pip install "dask[complete]" epam.indigo zstandard colorama
 ```
 
 git clone ORD project
@@ -31,7 +31,7 @@ git clone https://github.com/alkorolyov/selvita
 set MAMBA_NO_BANNER=1
 mamba create -n chem
 mamba activate chem
-mamba install -y numpy pandas dask jupyterlab zstandard
+mamba install -y numpy pandas dask jupyterlab zstandard colorama
 pip install ord-schema epam.indigo
 pip install levenshtein fuzzysearch
 

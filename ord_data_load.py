@@ -21,10 +21,10 @@ ORD_REPO_PATH = './ord-data'
 ORD_PATH = './ORD'
 
 TEMP_CONTROL_MAP = {
-    2 : 25.0,   # AMBIENT
-    6 : 0,      # ICE_BATH
-    9 : -78,    # DRY_ICE_BATH
-    11: -120    # LIQUID_NITROGEN
+    2: 25.0,        # AMBIENT
+    6: 0.0,         # ICE_BATH
+    9: -78.0,       # DRY_ICE_BATH
+    11: -120.0      # LIQUID_NITROGEN
 }
 
 
@@ -145,6 +145,8 @@ def extract_reaction_conditions(dic, roles_map={'REACTANT': 'reactants', 'SOLVEN
 
     return final_dic
 
+
+""" NEW FORMAT OF PARSED PB FILES """
 
 def parse_pb_file(pb: str, ord_parsed_path: str):
     # make dirs
@@ -355,6 +357,8 @@ def filter_uspto_filenames(filename: str) -> Union[str, None]:
     except protobuf.message.DecodeError as error:
         raise ValueError(f"error parsing {filename}: {error}") from error
 
+
+""" REACTION SUBSTRUCTURE SEARCH """
 
 def is_reaction_of_type(reaction_to_test,
                         # reaction_type_pattern=ReactionFromSmarts("[#8]-[#5](-[#8])-[#6:1].[#17,#35,#53]-[#6:2]>>[#6:1]-[#6:2]"),
