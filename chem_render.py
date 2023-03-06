@@ -60,6 +60,7 @@ def draw_reaction_solvents(df):
 
 def draw_reaction(data: Union[pd.Series, pd.DataFrame], highlight_text: str = None, render_format='png'):
     if isinstance(data, pd.DataFrame):
+        size = len(data)
         data = data.sample().squeeze()
 
     rxn = indigo.loadReaction(data['rxn_smiles'])
@@ -71,13 +72,15 @@ def draw_reaction(data: Union[pd.Series, pd.DataFrame], highlight_text: str = No
     else:
         print(f"{render_format}: unknown render format, 'svg' or 'png' ")
 
-    print("Patent:      ", data['patent'])
-    print("Reaction_id: ", data.name)
+    print("Set size:        ", size)
+    print("Patent:          ", data.get('patent'))
+    print("Reaction_id:     ", data.name)
+    # print("Reaction SMARTS: ", data.get('rxn_smiles'))
 
     if highlight_text:
-        print(colorize(highlight_text, data['notes']))
+        print(colorize(highlight_text, data.get('notes')))
     else:
-        print(data['notes'])
+        print(data.get('notes'))
 
 
 def draw_reaction_smi(rxn_smiles: str, render_format='png'):

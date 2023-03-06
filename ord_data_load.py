@@ -4,6 +4,7 @@ import json
 import gzip
 
 import numpy as np
+import pandas as pd
 
 from google import protobuf
 from ord_schema import message_helpers
@@ -14,6 +15,8 @@ from copy import deepcopy
 
 from rdkit.Chem import MolFromSmiles as smiles2mol
 from rdkit.Chem.AllChem import ReactionFromSmarts
+from rdkit.Chem.rdChemReactions import ChemicalReaction, HasReactionSubstructMatch
+
 
 from typing import Union
 
@@ -46,6 +49,8 @@ def df_na_vals(df, return_empty=True):
 def fahrenheit_to_celsius(t):
     return (t - 32) * (5/9)
 
+
+"""
 
 def extract_temperature_from_notes(description, room_temperature=25):
     if not description:
@@ -146,8 +151,6 @@ def extract_reaction_conditions(dic, roles_map={'REACTANT': 'reactants', 'SOLVEN
     return final_dic
 
 
-""" NEW FORMAT OF PARSED PB FILES """
-
 def parse_pb_file(pb: str, ord_parsed_path: str):
     # make dirs
     os.makedirs(f'{ord_parsed_path}/originals/', exist_ok=True)
@@ -169,6 +172,12 @@ def parse_pb_file(pb: str, ord_parsed_path: str):
     if reaction_conditions:
         with open(f'{ord_parsed_path}/parsed/{dataset_name}.json', 'w') as file:
             json.dump(reaction_conditions, file)
+
+"""
+
+
+""" NEW FORMAT OF PARSED PB FILES """
+
 
 
 def load_dataset(filename: str) -> dataset_pb2.Dataset:
@@ -251,6 +260,7 @@ def parse_dataset(dataset: dataset_pb2.Dataset) -> np.ndarray:
 
         for key in rxn.inputs:
             compounds.extend(rxn.inputs[key].components)
+
         products.extend(rxn.outcomes[0].products)
 
         for cmpd in compounds:
@@ -276,62 +286,53 @@ def parse_dataset_rxn(dataset: dataset_pb2.Dataset) -> np.ndarray:
     Parses USPTO dataset to extract reaction data. Creates specific
     numpy array of compounds with two indexes [0 .. N, field_idx]
 
-    columns = ['rxn_id', 'rxn_smiles', 'time', 'temp', 'yield', 'patent', 'notes']
-    field_idx:   0            1          2       3        4        5        6
+    columns = ['rxn_id', 'rxn_smiles', 'time_unit', 'time_val', 'temp_unit', 'temp_val', 'temp_control', 'yield', 'patent', 'notes']
+    field_idx:   0            1             2             3            4             5              6           7        8         9
 
     :param dataset: ord USPTO dataset
     :return: numpy array with shape (N, 7)
     """
     N = len(dataset.reactions)
-    arr = np.empty((N, 7), dtype=object)
-    idx = 0
+    arr = np.empty((N, 10), dtype=object)
 
-    for rxn in dataset.reactions:
+    for idx, rxn in enumerate(dataset.reactions):
+        # fields always present in USPTO
         arr[idx, 0] = rxn.reaction_id
-        arr[idx, 1] = rxn.identifiers[0].value
+        arr[idx, 1] = rxn.identifiers[0].value  # rxn_smiles
 
-        arr[idx, 5] = rxn.provenance.patent
-        arr[idx, 6] = rxn.notes.procedure_details
+        # time (hours)
+        if rxn.outcomes[0].HasField('reaction_time'):
+            time = rxn.outcomes[0].reaction_time
+            arr[idx, 2] = time.units
+            arr[idx, 3] = time.value
 
-        # time (in hours)
-        time = rxn.outcomes[0].reaction_time
-        if time:
-            t = None
-            if time.units == 1:     # HOUR
-                t = time.value
-            elif time.units == 2:   # MINUTE
-                t = time.value / 60
-            elif time.units == 4:   # DAY
-                t = time.value * 24
-            arr[idx, 2] = t
-
-        # temperature (celcius)
+        # temperature (°C)
         temp = rxn.conditions.temperature
-        t = None
-        if temp.control:
-            t = TEMP_CONTROL_MAP.get(temp.control.type, None)
-        if temp.setpoint:
-            t = temp.setpoint.value
-            if temp.setpoint.units == 2: # FAHRENHEIT
-                t = fahrenheit_to_celsius(t)
-            elif temp.setpoint.units == 3: # KELVIN
-                t = t - 273.15
-        if t is not None:
-            arr[idx, 3] = t
+        if temp.HasField('setpoint'):
+            arr[idx, 4] = temp.setpoint.units
+            arr[idx, 5] = temp.setpoint.value
+
+        # ambient temp control
+        if temp.HasField('control'):
+            arr[idx, 6] = temp.control.type
+
 
         # yield (keep PERCENTYIELD if more than two)
         yields = {}
         for p in rxn.outcomes[0].products:
             for m in p.measurements:
-                if m.type == 3: # yield
+                if m.type == 3:  # YIELD
                     yields[m.details] = m.percentage.value
         if yields:
             if len(yields) > 1:
                 y = yields.get("PERCENTYIELD", None)
             else:
                 y = yields.get("CALCULATEDPERCENTYIELD", None)
-            arr[idx, 4] = y
-        idx += 1
+            arr[idx, 7] = y
+
+        arr[idx, 8] = rxn.provenance.patent
+        arr[idx, 9] = rxn.notes.procedure_details
+
 
     arr = arr[:idx]
     return arr
@@ -345,6 +346,46 @@ def pb2_to_numpy_rxn(filename: str) -> np.ndarray:
     return parse_dataset_rxn(dataset)
 
 
+def pb2_test_parse(filename: str) -> np.ndarray:
+    """
+    Explore values and units
+    :param filename:
+    :return:
+    """
+    dataset = load_dataset(filename)
+    N = len(dataset.reactions)
+    arr = np.empty((N, 8), dtype=object)
+
+    for idx, rxn in enumerate(dataset.reactions):
+        if rxn.outcomes[0].HasField('reaction_time'):
+            time = rxn.outcomes[0].reaction_time
+            t = None
+            if time.units == 1:     # HOUR
+                t = time.value
+            elif time.units == 2:   # MINUTE
+                t = time.value / 60
+            elif time.units == 3:   # SECOND
+                t = time.value / 3600
+            elif time.units == 4:   # DAY
+                t = time.value * 24
+            arr[idx, 1] = time.units
+            arr[idx, 2] = t
+
+        temp = rxn.conditions.temperature
+        if temp.HasField('setpoint'):
+            arr[idx, 3] = temp.setpoint.units
+            arr[idx, 4] = temp.setpoint.value
+
+        if temp.HasField('control'):
+            arr[idx, 5] = temp.control.type
+
+        arr[idx,0] = rxn.reaction_id
+        arr[idx, 6] = rxn.notes.procedure_details
+        arr[idx, 7] = rxn.identifiers[0].value
+
+    arr = arr[:idx]
+
+    return arr
 
 def filter_uspto_filenames(filename: str) -> Union[str, None]:
     """
@@ -360,37 +401,17 @@ def filter_uspto_filenames(filename: str) -> Union[str, None]:
 
 """ REACTION SUBSTRUCTURE SEARCH """
 
-def is_reaction_of_type(reaction_to_test,
-                        # reaction_type_pattern=ReactionFromSmarts("[#8]-[#5](-[#8])-[#6:1].[#17,#35,#53]-[#6:2]>>[#6:1]-[#6:2]"),
-                        reaction_type_pattern=None,
-                        *reactants_patterns,
+def is_reaction_of_type(reaction_to_test: str,
+                        reaction_type_pattern: ChemicalReaction=None,
                         max_products=10
                         ):
     if reaction_to_test is None:
         return False
-    if isinstance(reaction_to_test, str):
-        reactants = tuple(filter(None, (smiles2mol(smiles) for smiles in reaction_to_test.split('>')[0].split('.'))))
-        actual_products = tuple(filter(None, (smiles2mol(smiles) for smiles in reaction_to_test.split('>')[-1].split('.'))))
-    else:
-        reactants = reaction_to_test.GetReactants()
-        actual_products = reaction_to_test.GetProducts()
 
-    if isinstance(reaction_type_pattern, str):
-        # use input string to make an RdKit reaction and molecules
-        reactants_patterns = tuple(smiles2mol(smiles) for smiles in reaction_type_pattern.split('>')[0].split('.'))
-        reaction_type_pattern = ReactionFromSmarts(reaction_type_pattern)
+    reactants = tuple(filter(None, (smiles2mol(smiles) for smiles in reaction_to_test.split(' ')[0].split('>')[0].split('.'))))
+    actual_products = tuple(filter(None, (smiles2mol(smiles) for smiles in reaction_to_test.split(' ')[0].split('>')[-1].split('.'))))
 
-    elif len(reactants_patterns) == 0:
-        # target reactants to be extracted from the target reaction
-        reactants_patterns = reaction_type_pattern.GetReactants()
-
-    elif isinstance(reactants_patterns[0], str):
-        # target reactants to be cast as RdKit Molecules
-        reactants_patterns = tuple(smiles2mol(smiles) for smiles in reactants_patterns)
-
-    else:
-        # everything is already an RdKit object
-        pass
+    reactants_patterns = reaction_type_pattern.GetReactants()
 
     reactants_to_test = []
     for r_pattern in reactants_patterns:
@@ -417,7 +438,7 @@ def is_reaction_of_type(reaction_to_test,
         except:
             pass
 
-    if len(estimated_products) == 0:
+    if not estimated_products:
         return False
 
     return any(any(pred.HasSubstructMatch(obs) for obs in actual_products)  # any of the actual products matches the predicted product

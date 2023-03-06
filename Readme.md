@@ -18,7 +18,8 @@ export PATH="$PATH:/workdir/.local/bin"
 
 install packages
 ```
-pip install "dask[complete]" epam.indigo zstandard colorama
+pip install "dask[complete]" epam.indigo zstandard colorama matplotlib
+pip install levenshtein fuzzysearch
 ```
 
 git clone ORD project
@@ -31,7 +32,7 @@ git clone https://github.com/alkorolyov/selvita
 set MAMBA_NO_BANNER=1
 mamba create -n chem
 mamba activate chem
-mamba install -y numpy pandas dask jupyterlab zstandard colorama
+mamba install -y numpy pandas dask jupyterlab zstandard colorama matplotlib
 pip install ord-schema epam.indigo
 pip install levenshtein fuzzysearch
 
