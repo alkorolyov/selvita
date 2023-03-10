@@ -36,7 +36,10 @@ def df_na_vals(df, return_empty=True):
     N = max(len(c) for c in columns) + 5
     empty = []
     for col in columns:
-        na_vals = df[col].isna() | ~df[col].apply(bool)
+        try:
+            na_vals = df[col].isna() | ~df[col].apply(bool)
+        except TypeError:
+            na_vals = df[col].isna()
         print(col.ljust(N), '->', ' '*(N//3), f'Missing values: {na_vals.sum()} ({na_vals.mean():.2%})')
 
         if na_vals.mean() > .99:

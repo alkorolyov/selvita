@@ -58,7 +58,15 @@ def draw_reaction_solvents(df):
     print(notes)
 
 
-def draw_reaction(data: Union[pd.Series, pd.DataFrame], highlight_text: str = None, render_format='png'):
+def draw_reaction(data: Union[pd.Series, pd.DataFrame], highlight_text: str = None, render_format='png') -> str:
+    """
+    Sample and draw random reaction from dataset
+    :param data: input dataframe
+    :param highlight_text: highlighted text in reaction notes, with up to
+                           1 difference in levenshtein distance.
+    :param render_format: 'png' or 'svg'
+    :return: sampled reaction id
+    """
     if isinstance(data, pd.DataFrame):
         size = len(data)
         data = data.sample().squeeze()
@@ -81,7 +89,7 @@ def draw_reaction(data: Union[pd.Series, pd.DataFrame], highlight_text: str = No
         print(colorize(highlight_text, data.get('notes')))
     else:
         print(data.get('notes'))
-
+    return data.name
 
 def draw_reaction_smi(rxn_smiles: str, render_format='png'):
     rxn = indigo.loadReaction(rxn_smiles)
