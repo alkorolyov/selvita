@@ -53,134 +53,7 @@ def fahrenheit_to_celsius(t):
     return (t - 32) * (5/9)
 
 
-"""
-
-def extract_temperature_from_notes(description, room_temperature=25):
-    if not description:
-        return None
-    match = re.search('\s(?P<temperature>-{0,1}\d{1,3})[\s°o\*]*(c|C|deg|degrees)\W', description)
-    if match:
-        return int(match.groupdict()['temperature'])
-    elif re.search('\W(rt|RT|room temp|ambient temp)', description):
-        return room_temperature
-    else:
-        return None
-
-
-def extract_reaction_conditions(dic, roles_map={'REACTANT': 'reactants', 'SOLVENT': 'solvents', 'CATALYST': 'catalysts'}):
-    # Reaction identifier
-    final_dic = {'id': dic['reactionId']}
-
-    # Reaction SMILES
-    for i in dic['identifiers']:
-        if i['type'] == 'REACTION_CXSMILES':
-            final_dic['reaction_smile'] = i['value'].split()[0] # remove the
-            break
-    else:
-        final_dic['reaction_smile'] = None
-
-    # Compounds
-    final_dic['solvents'] = []
-    final_dic['reactants'] = []
-    final_dic['catalysts'] = []
-    final_dic['reagents'] = []
-    for number, input_dics in dic['inputs'].items():
-        for i_d in input_dics['components']:
-            role = roles_map.get(i_d['reactionRole'], 'reagents')
-            compound_name = None
-            compound_smiles = None
-            for i in i_d['identifiers']:
-                if i['type'] == 'NAME':
-                    compound_name = i['value'].replace('′',"'")
-                elif i['type'] == 'SMILES':
-                    compound_smiles = i['value']
-            final_dic[role].append((compound_name, compound_smiles))
-
-    # Temperature
-    temperature = dic['conditions'].get('temperature', [])
-    if 'control' in temperature:
-        temperature = temperature['control']['type']
-    elif 'setpoint' in temperature:
-        t = temperature['setpoint']['value']
-        if temperature['setpoint']['units'] == 'KELVIN':
-            temperature = t - 273.15
-        elif temperature['setpoint']['units'] == 'FAHRENHEIT':
-            temperature = fahrenheit_to_celsius(t)
-        else:
-            temperature = t
-    else:
-        temperature = extract_temperature_from_notes(dic['notes'].get('procedureDetails', ''), 'AMBIENT')
-
-    final_dic['temperature'] = temperature
-
-
-    # Time
-    outcome = dic['outcomes'][0]
-    time = outcome.get('reactionTime')
-    if time:
-        if time['units'] == 'MINUTES':
-            time = time['value'] / 60
-        else:
-            time = time['value']
-
-    final_dic['time'] = time
-
-    # Product and Yield
-    for product in outcome['products']:
-        for p_id in product.get('identifiers', []):
-            if p_id['type'] == 'SMILES':
-                product_smiles = p_id['value']
-                break
-        else:
-            product_smiles = None
-
-        measurements = product.get('measurements', [])
-        for measurement in measurements:
-            if measurement['type'] == 'YIELD':
-                reaction_yield = measurement['percentage']['value']
-                break
-        else:
-            reaction_yield = None
-
-    final_dic['product'] = product_smiles
-    final_dic['yield'] = reaction_yield
-
-    # Notes
-    final_dic['notes'] = dic.get('notes', {}).get('procedureDetails')
-
-    # Provenance
-    final_dic['patent'] = dic.get('provenance', {}).get('patent')
-
-    return final_dic
-
-
-def parse_pb_file(pb: str, ord_parsed_path: str):
-    # make dirs
-    os.makedirs(f'{ord_parsed_path}/originals/', exist_ok=True)
-    os.makedirs(f'{ord_parsed_path}/parsed/', exist_ok=True)
-    dataset_name = os.path.split(pb)[-1].strip('.pb.gz')
-    reaction_conditions = []
-    try:
-        data = message_helpers.load_message(pb, dataset_pb2.Dataset)
-        data_dic = message_helpers.json_format.MessageToDict(data)
-        with open(f'{ord_parsed_path}/originals/{dataset_name}.json', 'w') as file:
-            json.dump(data_dic, file)
-        for rxn_dic in data_dic['reactions']:
-            reaction_conditions.append(extract_reaction_conditions(rxn_dic))
-        # with mp.Pool(n_cores) as p:
-        #     reaction_conditions = p.map(extract_reaction_conditions, data_dic['reactions'])
-    except Exception as e:
-        print(f'{dataset_name} extraction failed with error: {e}')
-
-    if reaction_conditions:
-        with open(f'{ord_parsed_path}/parsed/{dataset_name}.json', 'w') as file:
-            json.dump(reaction_conditions, file)
-
-"""
-
-
 """ NEW FORMAT OF PARSED PB FILES """
-
 
 
 def load_dataset(filename: str) -> dataset_pb2.Dataset:
@@ -190,7 +63,6 @@ def load_dataset(filename: str) -> dataset_pb2.Dataset:
     except protobuf.message.DecodeError as error:
         raise ValueError(f"error parsing {filename}: {error}") from error
 
-
 def parse_compound(arr: np.array,
                    idx: int,
                    rxn: reaction_pb2.Reaction,
@@ -198,11 +70,16 @@ def parse_compound(arr: np.array,
                    ):
     """
     In USPTO scheme there are two or single name identifiers:
-        [systematic]
-        [trivial, systematic]
+    [systematic]
+    [trivial, systematic]
 
-        arr[:, 0] <- trivial
-        arr[:, 1] <- systematic
+    arr[:, 0] <- trivial
+    arr[:, 1] <- systematic
+
+    :param arr: () output numpy array
+    :param idx: (int) current index in array
+    :param rxn: (reaction_pb2.Reaction) containing compound
+    :param cmpd: compound, might be product or ordinary
     """
     names = []
     for i in cmpd.identifiers:
@@ -250,8 +127,8 @@ def parse_dataset(dataset: dataset_pb2.Dataset) -> np.ndarray:
                            e.g. "REACTANT" - 1, "SOLVENT" - 3, "CATALYST" - 4, "PRODUCT" - 8
         arr[i, 4] - (str), reaction_id, e.g. "ord-43d5b7a6265d46a0ab8a7e2b2db5ad33"
 
-    :param dataset:
-    :return:
+    :param dataset: (dataset_pb2.Dataset) input dataset
+    :return: numpy array
     """
     N = len(dataset.reactions)
     arr = np.empty((N*10, 5), dtype=object)

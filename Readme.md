@@ -29,12 +29,26 @@ git clone https://github.com/alkorolyov/selvita
 
 (optional) in mambaforge environment
 ```
+wget https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh
+chmod +x Mambaforge-Linux-x86_64.sh
+bash Mambaforge-Linux-x86_64.sh
+
+# win
 set MAMBA_NO_BANNER=1
-mamba create -n chem
+# linux
+export MAMBA_NO_BANNER=1
+
+./mamba init
+
+mamba create -n chem python=3.8 -y
 mamba activate chem
 mamba install -y numpy pandas dask jupyterlab zstandard colorama matplotlib
-pip install ord-schema epam.indigo
-pip install levenshtein fuzzysearch
+pip install ord-schema epam.indigo levenshtein fuzzysearch 
 
+# RXNMApper
+# pytorch <1.12 for rxnmapper
+mamba install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch -y
+# mamba install -y rust
+pip install rxnmapper
 ```
 
