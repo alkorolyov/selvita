@@ -19,6 +19,9 @@ indigo.setOption("render-output-format", "png")
 indigo.setOption("render-coloring", True)
 # indigo.setOption("render-base-color", "1, 1, 1")
 indigo.setOption("render-relative-thickness", 1.5)
+indigo.setOption("render-highlight-thickness-enabled", True)
+indigo.setOption("render-highlighted-labels-visible", True)
+# indigo.setOption("render-highlight-color", "1, 0.4, 0")
 
 
 def colorize(substring, text):
@@ -60,7 +63,7 @@ def draw_reaction_solvents(df):
 
 def draw_reaction(data: Union[pd.Series, pd.DataFrame],
                   highlight_text: str = None,
-                  highlight_pattern: str = None,
+                  highlight_smi: str = None,
                   render_format='png',
                   auto_map: bool = False) -> Union[str, None]:
     """
@@ -88,7 +91,21 @@ def draw_reaction(data: Union[pd.Series, pd.DataFrame],
         print(f"Parsing error: {e}\nSmiles: {data['rxn_smiles']}")
         return None
 
-    draw_indigo_obj(rxn)
+    if highlight_smi:
+        indigo.setOption("render-coloring", False)
+
+        query = indigo.loadReactionSmarts(highlight_smi)
+        match = indigo.substructureMatcher(rxn).match(query)
+        if match:
+            draw_indigo_obj(match.highlightedTarget())
+        else:
+            print(f"Pattern {highlight_smi} not found")
+            draw_indigo_obj(rxn)
+
+        indigo.setOption("render-coloring", True)
+
+    else:
+        draw_indigo_obj(rxn)
 
     # print("Reaction SMARTS: ", data.get('rxn_smiles'))
 
