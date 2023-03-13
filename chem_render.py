@@ -58,9 +58,14 @@ def draw_reaction_solvents(df):
     print(notes)
 
 
-def draw_reaction(data: Union[pd.Series, pd.DataFrame], highlight_text: str = None, render_format='png') -> str:
+def draw_reaction(data: Union[pd.Series, pd.DataFrame],
+                  highlight_text: str = None,
+                  highlight_pattern: str = None,
+                  render_format='png',
+                  auto_map: bool = False) -> Union[str, None]:
     """
     Sample and draw random reaction from dataset
+    :param auto_map: render atom to atom mapping by Indigo
     :param data: input dataframe
     :param highlight_text: highlighted text in reaction notes, with up to
                            1 difference in levenshtein distance.
@@ -71,18 +76,20 @@ def draw_reaction(data: Union[pd.Series, pd.DataFrame], highlight_text: str = No
         size = len(data)
         data = data.sample().squeeze()
 
-    rxn = indigo.loadReaction(data['rxn_smiles'])
-    indigo.setOption("render-output-format", render_format)
-    if render_format == 'png':
-        display(Image(renderer.renderToBuffer(rxn)))
-    elif render_format == 'svg':
-        display(SVG(renderer.renderToBuffer(rxn)))
-    else:
-        print(f"{render_format}: unknown render format, 'svg' or 'png' ")
-
     print("Set size:        ", size)
     print("Patent:          ", data.get('patent'))
     print("Reaction_id:     ", data.name)
+
+    try:
+        rxn = indigo.loadReaction(data['rxn_smiles'])
+        if auto_map:
+            rxn.automap()
+    except Exception as e:
+        print(f"Parsing error: {e}\nSmiles: {data['rxn_smiles']}")
+        return None
+
+    draw_indigo_obj(rxn)
+
     # print("Reaction SMARTS: ", data.get('rxn_smiles'))
 
     if highlight_text:
@@ -91,23 +98,22 @@ def draw_reaction(data: Union[pd.Series, pd.DataFrame], highlight_text: str = No
         print(data.get('notes'))
     return data.name
 
-def draw_reaction_smi(rxn_smiles: str, render_format='png'):
-    rxn = indigo.loadReaction(rxn_smiles)
+
+def draw_indigo_obj(obj, render_format='png'):
     indigo.setOption("render-output-format", render_format)
     if render_format == 'png':
-        display(Image(renderer.renderToBuffer(rxn)))
+        display(Image(renderer.renderToBuffer(obj)))
     elif render_format == 'svg':
-        display(SVG(renderer.renderToBuffer(rxn)))
+        display(SVG(renderer.renderToBuffer(obj)))
     else:
         print(f"{render_format}: unknown render format, 'svg' or 'png' ")
+
+
+def draw_reaction_smi(rxn_smiles: str, render_format='png'):
+    rxn = indigo.loadReaction(rxn_smiles)
+    draw_indigo_obj(rxn)
 
 
 def draw_mol(mol_smi: str, render_format='png'):
     mol = indigo.loadMolecule(mol_smi)
-    indigo.setOption("render-output-format", render_format)
-    if render_format == 'png':
-        display(Image(renderer.renderToBuffer(mol)))
-    elif render_format == 'svg':
-        display(SVG(renderer.renderToBuffer(mol)))
-    else:
-        print(f"{render_format}: unknown render format, 'svg' or 'png' ")
+    draw_indigo_obj(mol)
